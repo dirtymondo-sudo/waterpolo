@@ -64,6 +64,16 @@ try {
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'shots/m1-shot.png' });
 
+  // --- Man-up: sin-bin a CPU defender and capture the indicator. ---
+  await page.evaluate(() => {
+    const s = window.GAME.state;
+    s.phase = 'play'; s.phaseTimer = 0;
+    const d = s.players.find((p) => p.team === 1 && p.role === 'field' && !p.excluded);
+    d.excluded = true; d.excludeTimer = 20;
+  });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: 'shots/m3-manup.png' });
+
   // --- Win screen: force the clock to full time and capture the banner. ---
   await page.evaluate(() => {
     const s = window.GAME.state;

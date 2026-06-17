@@ -101,6 +101,7 @@ export function tryPickup(state) {
   let bestDist = Infinity;
 
   for (const p of state.players) {
+    if (p.excluded) continue;
     if (p.id === b.lastOwnerId && b.pickupCooldown > 0) continue;
     const reach = p.role === 'goalie' ? G.reach : P.pickupRadius;
     const reachH = p.role === 'goalie' ? G.reachHeight : P.pickupHeight;
@@ -128,27 +129,33 @@ function grab(state, player) {
   state.shotClock = MATCH.shotClockSeconds;
 }
 
-// Attempt to strip the ball from an opponent carrier. Success (in range, off
-// cooldown) knocks it loose toward the stealer for a scramble; either side can
-// then recover it. Returns true on a successful strip. Deterministic.
+// Attempt to strip the ball from an opponent carrier.
+//   - in steal range            -> clean strip; ball pops loose toward stealer
+//   - just outside, in foul range -> FOUL: free throw to the carrier, and an
+//                                    EXCLUSION (20s sin-bin) if the foul is in
+//                                    the defender's own 6m area
+// Returns true on a successful strip. Deterministic.
 export function trySteal(state, player) {
   const St = TUNABLES.steal;
-  if (player.stealCooldown > 0) return false;
+  const F = TUNABLES.foul;
+  if (player.stealCooldown > 0 || player.excluded) return false;
 
   const b = state.ball;
-  if (!b.held) return false;
+  if (!b.held || state.freeThrowTimer > 0) return false;
   const holder = playerById(state, b.ownerId);
   if (!holder || holder.team === player.team) return false;
 
   const dx = player.x - holder.x;
   const dz = player.z - holder.z;
   const d = Math.hypot(dx, dz) || 1;
+
   if (d > St.range) {
-    player.stealCooldown = St.missCooldown; // whiffed
+    if (d <= F.range) commitFoul(state, player, holder); // reached in but mistimed
+    else player.stealCooldown = St.missCooldown; // pure whiff
     return false;
   }
 
-  // Knock the ball loose, popping it toward the stealer.
+  // Clean strip: knock the ball loose, popping it toward the stealer.
   b.held = false;
   b.ownerId = null;
   b.lastOwnerId = holder.id;
@@ -164,6 +171,23 @@ export function trySteal(state, player) {
   player.stealCooldown = St.cooldown;
   state.possession = null;
   return true;
+}
+
+// A defender fouls the carrier: protected free throw for the attack, and an
+// exclusion if it happened in the defender's own 6m zone.
+function commitFoul(state, defender, carrier) {
+  const F = TUNABLES.foul;
+  defender.stealCooldown = TUNABLES.steal.cooldown;
+  state.freeThrowTimer = F.freeThrowSeconds;
+  state.lastFoul = { defender: defender.id, team: carrier.team };
+
+  const ownGoalX = defender.team === 0 ? -POOL.length / 2 : POOL.length / 2;
+  if (Math.abs(defender.x - ownGoalX) <= F.excludeZone) {
+    defender.excluded = true;
+    defender.excludeTimer = F.excludeSeconds;
+    defender.charge = 0;
+    defender.chargeType = null;
+  }
 }
 
 // --- Launches ---------------------------------------------------------------

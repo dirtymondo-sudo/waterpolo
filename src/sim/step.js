@@ -9,6 +9,7 @@
 // the SAME command shape, so both paths share all the action code below.
 
 import { TUNABLES } from '../config/tunables.js';
+import { giveControlNearBall } from './world.js';
 import { stepPlayer } from './movement.js';
 import { computeAICommand } from './ai.js';
 import { updateBall, tryPickup, trySteal, launchShot, launchPass } from './ball.js';
@@ -24,6 +25,10 @@ export function step(state, commands, dt) {
   if (state.phase === 'goal') return advance(state, dt, () => tickGoalPause(state, dt));
   if (state.phase === 'periodEnd') return advance(state, dt, () => tickPeriodEnd(state, dt));
   if (state.phase === 'fullTime') return advance(state, dt, null);
+
+  // If the controlled player got sin-binned, hand control to a player in the pool.
+  const ctrl = state.players.find((p) => p.controlled);
+  if (ctrl && ctrl.excluded) giveControlNearBall(state);
 
   // Live phases ('play' and 'swimOff'): build an effective command per player.
   const eff = {};
@@ -53,8 +58,11 @@ export function step(state, commands, dt) {
   updateBall(state, dt);
   tryPickup(state);
 
-  // 4. Auto-switch the human's control to whoever on team 0 holds the ball.
+  // 4. Switching: follow the team-0 carrier; when the opponent wins possession,
+  //    snap to the team-0 player nearest the ball so you're defending the threat.
   updateControl(state);
+  if (state.possession === 1 && state._lastPoss !== 1) giveControlNearBall(state);
+  state._lastPoss = state.possession;
 
   // 5. Swim-off whistle / in-play referee (clocks, goals, periods).
   if (state.phase === 'swimOff') tickSwimOff(state, dt);
@@ -111,11 +119,16 @@ function updateControl(state) {
   for (const p of state.players) p.controlled = p === holder;
 }
 
+// Tab: cycle control to the NEXT team-0 field player by proximity to the ball,
+// so repeated taps walk outward through your defenders.
 function switchControl(state) {
   const b = state.ball;
-  const field = state.players.filter((p) => p.team === 0 && p.role === 'field');
+  const field = state.players
+    .filter((p) => p.team === 0 && p.role === 'field' && !p.excluded)
+    .sort((a, c) => Math.hypot(a.x - b.x, a.z - b.z) - Math.hypot(c.x - b.x, c.z - b.z));
   if (!field.length) return;
-  field.sort((a, c) => Math.hypot(a.x - b.x, a.z - b.z) - Math.hypot(c.x - b.x, c.z - b.z));
+  const cur = field.findIndex((p) => p.controlled);
+  const next = field[(cur + 1) % field.length];
   for (const p of state.players) p.controlled = false;
-  field[0].controlled = true;
+  next.controlled = true;
 }

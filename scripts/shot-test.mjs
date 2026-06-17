@@ -21,11 +21,13 @@ function runShot({ type, fromX, fromZ, aimZ, charge = 1.0, withGoalie = true }) 
   state.phaseTimer = 0;
   state.possession = 0;
 
-  // Park the chasing defenders (and optionally the keeper) out of the way so we
-  // measure the shot in isolation.
+  // Park everyone except the shooter (and optionally the keeper on its line) far
+  // from the shot lane so we measure the trajectory in isolation.
   for (const p of state.players) {
-    if (p.team !== 1) continue;
-    if (p.role === 'field' || !withGoalie) { p.x = HALF_L - 1; p.z = 9; p.hx = HALF_L - 1; p.hz = 9; }
+    if (p.human) continue;
+    if (withGoalie && p.team === 1 && p.role === 'goalie') continue;
+    p.x = -HALF_L + 1; p.z = -9; p.hx = -HALF_L + 1; p.hz = -9;
+    p.excluded = true; p.excludeTimer = 999; // keep them parked, out of the play
   }
   human.x = fromX;
   human.z = fromZ;

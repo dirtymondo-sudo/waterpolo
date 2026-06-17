@@ -29,6 +29,7 @@ const scoreEl = document.getElementById('score');
 const shotclockEl = document.getElementById('shotclock');
 const gameclockEl = document.getElementById('gameclock');
 const bannerEl = document.getElementById('banner');
+const manupEl = document.getElementById('manup');
 const chargebarEl = document.getElementById('chargebar');
 const chargefillEl = document.getElementById('chargefill');
 const chargelabelEl = document.getElementById('chargelabel');
@@ -74,6 +75,24 @@ function updateHUD(s) {
     bannerEl.textContent = text;
     bannerEl.classList.toggle('show', !!text);
     bannerEl.classList.toggle('huge', s.phase === 'goal' || s.phase === 'fullTime');
+  }
+
+  // Man-up / man-down indicator (counts players still in the pool).
+  if (manupEl) {
+    const inPool = [0, 0];
+    let exTimer = 0;
+    for (const p of s.players) {
+      if (p.excluded) { exTimer = Math.max(exTimer, p.excludeTimer); continue; }
+      inPool[p.team] += 1;
+    }
+    if (inPool[0] !== inPool[1] && s.phase === 'play') {
+      const up = inPool[0] > inPool[1];
+      manupEl.textContent = `P1 ${up ? 'MAN-UP' : 'MAN-DOWN'} ${inPool[0]}v${inPool[1]} · ${Math.ceil(exTimer)}s`;
+      manupEl.className = up ? 'up' : 'down';
+    } else {
+      manupEl.textContent = '';
+      manupEl.className = '';
+    }
   }
 
   // Charge bar follows the controlled carrier while a shoot button is held.
@@ -156,10 +175,11 @@ window.GAME = {
     for (const type of ['normal', 'skip', 'lob']) {
       const s = createWorld();
       s.phase = 'play'; s.phaseTimer = 0; s.possession = 0;
-      for (const p of s.players) {
-        if (p.team === 1) { p.x = HALF_L - 0.5; p.z = 9; p.hz = 9; } // clear opponents
-      }
       const h = s.players.find((p) => p.human);
+      for (const p of s.players) {
+        if (p === h) continue;
+        p.x = -HALF_L + 1; p.z = -9; p.excluded = true; p.excludeTimer = 999; // open net
+      }
       h.x = 9; h.z = -1; h.hx = 9; h.hz = -1;
       s.ball.locked = false; s.ball.held = true; s.ball.ownerId = h.id;
       s.ball.x = 9; s.ball.z = -1;

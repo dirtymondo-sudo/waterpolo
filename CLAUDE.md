@@ -36,18 +36,24 @@ charge-shot types (normal/skip/lob), goalie save, goal detection + score + shot
 clock.
 Milestone 2 (match flow) is DONE: state machine in `sim/rules/referee.js`
 (swimOff → play → goal → play … → periodEnd → swimOff/fullTime), 4 periods +
-period clock, post-goal centre restart to the conceding team, win screen. Plus
-two playability fixes: a real **CPU** (`sim/ai.js` emits the same command shape
-as a human — carrier drives & shoots, off-ball gets open, defenders press &
-**steal**, goalie holds the line / outlets) and a **steal mechanic**
-(`trySteal` in `sim/ball.js`). Roster is now 2v2 + goalies.
+period clock, post-goal centre restart to the conceding team, win screen.
+Milestone 3 (depth) is DONE: **7v7** (6 field + goalie per side), formation-based
+AI (`sim/formations.js` slot tables; off-ball attackers fill their slot, one
+defender presses while the rest hold a zone, nearest player chases loose balls),
+**exclusion fouls + man-up/man-down** (a mistimed steal in your own 6m is a 20s
+sin-bin → `commitFoul` in `sim/ball.js`; lesser fouls give a protected free
+throw; excluded players return after 20s or when the man-up team scores), and
+switching polish (Tab cycles team-0 field players by proximity; control auto-
+snaps to the nearest defender when the opponent wins the ball). A real **CPU**
+and **steal mechanic** (`trySteal`) carry over from M2.
 Controls: WASD swim, Shift sprint, Space=shoot / E=skip / Q=lob (hold to charge),
 F=pass, Tab=switch player (with no ball, a shoot press lunges for a steal),
 C=camera (broadcast/side/dynamic/endline).
-Next: Milestone 3 — exclusion fouls + man-up/down, smarter AI, switching polish.
-See `docs/PLAN.md` §8.
+Next: Milestone 4 — visual upgrade (GLTF models + animation + spring-bone jiggle;
+custom water shader with caustics/foam/wake; replays). See `docs/PLAN.md` §8.
 
 Tuning tips: shot feel lives in `TUNABLES.shot` (each type owns its own gravity);
-CPU/steal feel in `TUNABLES.ai` / `TUNABLES.steal`; pacing in `TUNABLES.match`.
+CPU/steal/foul feel in `TUNABLES.ai` / `TUNABLES.steal` / `TUNABLES.foul`; pacing
+in `TUNABLES.match`; team shape in `sim/formations.js`.
 `node scripts/shot-test.mjs` checks all three trajectories headlessly (the sim is
 pure data, so no browser needed) — use it when tuning.

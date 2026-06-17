@@ -108,6 +108,7 @@ export const TUNABLES = {
     targetCharge: 0.92, // fraction of full power the CPU winds up to
     cornerZ: 1.05, // how far toward a corner the CPU aims (m off centre)
     sprintChaseDist: 4, // sprint after the ball/carrier when further than this
+    passUnderPressure: 1.4, // carrier passes if a defender is this close
   },
   // Stealing/stripping the ball from a carrier (used by human and CPU).
   steal: {
@@ -116,6 +117,14 @@ export const TUNABLES = {
     missCooldown: 0.3, // shorter wait after a whiff
     knockSpeed: 1.8, // how hard the ball pops loose, toward the stealer
     knockUp: 0.9, // upward pop so it's a brief scramble
+  },
+
+  // Fouls & exclusions (the man-up / man-down strategic core).
+  foul: {
+    range: 1.7, // a whiffed steal within this of the carrier is a foul
+    freeThrowSeconds: 1.4, // protected possession after a foul (no steals)
+    excludeSeconds: 20, // sin-bin time for an exclusion foul
+    excludeZone: 6, // fouling this close to your OWN goal = exclusion
   },
 
   // --- Match flow (state-machine pacing) ---

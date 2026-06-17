@@ -4,121 +4,169 @@
 // ({ move, sprint, shootType, pass, steal }), so AI and human run through the
 // exact same movement/action code — and AI "just works" over the wire later.
 //
-// Behaviours by situation:
-//   - my team has the ball, I'm the carrier  -> drive at goal, charge & shoot
-//   - my team has the ball, I'm off the ball  -> get to an open outlet
-//   - opponent has the ball                    -> press goal-side; steal if close
-//   - loose ball                               -> sprint to it
-//   - goalie                                   -> hold the line; pass out if it has it
+// With 6 field players per side, the key idea is FORMATION + ROLES so players
+// don't all swarm the ball: off-ball attackers fill their attacking slot, one
+// defender presses the carrier while the rest hold a zone, and the player
+// nearest a loose ball chases while the others keep shape.
 //
 // Headless and deterministic (no Math.random / Date).
-//
-// (Single AI file for Milestone 2; splits into ai/goalie.js, ai/defense.js,
-// ai/offense.js as behaviours grow — see PLAN §4.)
 
 import { TUNABLES } from '../config/tunables.js';
 import { POOL } from '../config/rules.js';
+import { offenseSpot, defenseSpot, penaltyBox } from './formations.js';
 
 const HALF_L = POOL.length / 2;
 const GOAL_X = HALF_L - TUNABLES.goalie.lineOffset;
 
 const NONE = () => ({ move: { x: 0, z: 0 }, sprint: false, shootType: null, pass: false, steal: false });
+const toward = (p, tx, tz) => ({ x: tx - p.x, z: tz - p.z });
 
 export function computeAICommand(player, state) {
+  const cmd = NONE();
+
+  // Sin-binned: swim to the re-entry corner and wait.
+  if (player.excluded) {
+    const box = penaltyBox(player.team);
+    cmd.move = toward(player, box.x, box.z);
+    return cmd;
+  }
+
   const b = state.ball;
   const holder = b.held ? state.players.find((p) => p.id === b.ownerId) : null;
 
-  if (player.role === 'goalie') return goalieCmd(player, state, holder);
+  if (player.role === 'goalie') return goalieCmd(player, state, holder, cmd);
 
   if (holder && holder.team === player.team) {
-    return holder === player ? carrierCmd(player, state) : offBallCmd(player, state);
+    return holder === player ? carrierCmd(player, state, cmd) : offBallCmd(player, cmd);
   }
-  return defendCmd(player, state, holder);
+  return defendCmd(player, state, holder, cmd);
 }
 
 // --- Goalie -----------------------------------------------------------------
-function goalieCmd(player, state, holder) {
-  const cmd = NONE();
-  // If the goalie somehow has the ball, clear it immediately with an outlet pass.
+function goalieCmd(player, state, holder, cmd) {
   if (holder === player) {
-    cmd.pass = true;
+    cmd.pass = true; // clear it with an outlet pass
     return cmd;
   }
   const G = TUNABLES.goalie;
   const b = state.ball;
   const ownGoalX = player.team === 0 ? -GOAL_X : GOAL_X;
-  const targetZ = clamp(b.z, -G.zClamp, G.zClamp);
-  cmd.move = { x: ownGoalX - player.x, z: targetZ - player.z };
+  cmd.move = toward(player, ownGoalX, clamp(b.z, -G.zClamp, G.zClamp));
   return cmd;
 }
 
-// --- Offence: carrier drives at the goal and shoots --------------------------
-function carrierCmd(player, state) {
+// --- Offence: carrier drives at goal, shoots, or passes out of pressure -------
+function carrierCmd(player, state, cmd) {
   const A = TUNABLES.ai;
-  const cmd = NONE();
-  const sign = player.team === 0 ? 1 : -1; // attack direction
+  const sign = player.team === 0 ? 1 : -1;
   const goalX = sign * HALF_L;
   const distToLine = Math.abs(goalX - player.x);
+  const pressure = nearestOpponentDist(player, state);
 
-  if (distToLine > A.shootRange) {
-    // Too far: swim goal-ward, drifting toward the centre lane.
-    cmd.move = { x: goalX - player.x, z: -player.z * 0.3 };
-    cmd.sprint = true;
+  if (distToLine <= A.shootRange) {
+    // In range: aim AT the corner away from the keeper so the heading (and the
+    // shot) line up on it, then wind up and fire.
+    const keeper = state.players.find((p) => p.team !== player.team && p.role === 'goalie');
+    const cornerZ = keeper && keeper.z > 0 ? -A.cornerZ : A.cornerZ;
+    cmd.move = toward(player, goalX, cornerZ);
+    const full = TUNABLES.shot.chargeTime * A.targetCharge;
+    cmd.shootType = player.charge < full ? 'normal' : null;
     return cmd;
   }
 
-  // In range: aim AT the corner away from the keeper. The move vector points at
-  // the target so the heading (and therefore the shot) lines up on it; the
-  // player drifts goal-ward while winding up, then fires.
-  const keeper = state.players.find((p) => p.team !== player.team && p.role === 'goalie');
-  const cornerZ = keeper && keeper.z > 0 ? -A.cornerZ : A.cornerZ;
-  cmd.move = { x: goalX - player.x, z: cornerZ - player.z };
+  // Under pressure away from goal: pass to an open teammate if there is one.
+  if (pressure < A.passUnderPressure && openTeammate(player, state)) {
+    cmd.pass = true;
+    return cmd;
+  }
 
-  const full = TUNABLES.shot.chargeTime * A.targetCharge;
-  cmd.shootType = player.charge < full ? 'normal' : null; // hold to charge, then release
+  // Otherwise carry toward goal, drifting to the centre lane.
+  cmd.move = toward(player, goalX, player.z * 0.7);
+  cmd.sprint = true;
   return cmd;
 }
 
-// --- Offence: off the ball, give a passing outlet ---------------------------
-function offBallCmd(player, state) {
-  const cmd = NONE();
-  const sign = player.team === 0 ? 1 : -1;
-  const carrier = state.players.find((p) => p.id === state.ball.ownerId);
-  // Post up in the attacking third on the opposite side from the carrier.
-  const targetX = sign * (HALF_L - 6);
-  const targetZ = carrier ? clamp(-carrier.z, -6, 6) : 0;
-  cmd.move = { x: targetX - player.x, z: targetZ - player.z };
+function offBallCmd(player, cmd) {
+  const spot = offenseSpot(player.team, player.slot);
+  cmd.move = toward(player, spot.x, spot.z);
   return cmd;
 }
 
-// --- Defence: press goal-side, steal when tight, chase loose balls ----------
-function defendCmd(player, state, holder) {
+// --- Defence: one presser, the rest hold the zone; chase loose balls ----------
+function defendCmd(player, state, holder, cmd) {
   const A = TUNABLES.ai;
   const St = TUNABLES.steal;
-  const cmd = NONE();
   const b = state.ball;
 
+  // Am I my team's nearest field player to the ball? If so, I'm the presser/chaser.
+  const amClosest = isClosestFieldToBall(player, state);
+
   if (!b.held) {
-    // Loose ball: race to it.
-    cmd.move = { x: b.x - player.x, z: b.z - player.z };
-    cmd.sprint = Math.hypot(b.x - player.x, b.z - player.z) > A.sprintChaseDist;
+    // Loose ball: nearest chases, the rest hold a defensive shape.
+    if (amClosest) {
+      cmd.move = toward(player, b.x, b.z);
+      cmd.sprint = Math.hypot(b.x - player.x, b.z - player.z) > A.sprintChaseDist;
+    } else {
+      const spot = defenseSpot(player.team, player.slot);
+      cmd.move = toward(player, spot.x, spot.z);
+    }
     return cmd;
   }
 
-  const d = Math.hypot(b.x - player.x, b.z - player.z);
-  if (d <= St.range + 0.15) {
-    // Close enough to contest: lunge in and try to strip it.
-    cmd.move = { x: holder.x - player.x, z: holder.z - player.z };
-    cmd.steal = true;
+  if (amClosest) {
+    const d = Math.hypot(b.x - player.x, b.z - player.z);
+    // Don't hack at a protected free-throw; just close down.
+    if (d <= St.range + 0.15 && state.freeThrowTimer <= 0) {
+      cmd.move = toward(player, holder.x, holder.z);
+      cmd.steal = true;
+      return cmd;
+    }
+    const ownGoalX = player.team === 0 ? -HALF_L : HALF_L;
+    const side = Math.sign(ownGoalX - b.x) || 1;
+    cmd.move = toward(player, b.x + side * TUNABLES.defense.pressDist, b.z);
+    cmd.sprint = d > A.sprintChaseDist;
     return cmd;
   }
 
-  // Otherwise sit between the ball and our own goal.
-  const ownGoalX = player.team === 0 ? -HALF_L : HALF_L;
-  const toward = Math.sign(ownGoalX - b.x) || 1;
-  cmd.move = { x: b.x + toward * TUNABLES.defense.pressDist - player.x, z: b.z - player.z };
-  cmd.sprint = d > A.sprintChaseDist;
+  // Off-ball defenders hold their zone.
+  const spot = defenseSpot(player.team, player.slot);
+  cmd.move = toward(player, spot.x, spot.z);
   return cmd;
+}
+
+// --- helpers ----------------------------------------------------------------
+function isClosestFieldToBall(player, state) {
+  const b = state.ball;
+  const my = Math.hypot(b.x - player.x, b.z - player.z);
+  for (const p of state.players) {
+    if (p === player || p.team !== player.team || p.role !== 'field' || p.excluded) continue;
+    const d = Math.hypot(b.x - p.x, b.z - p.z);
+    if (d < my || (d === my && p.id < player.id)) return false;
+  }
+  return true;
+}
+
+function nearestOpponentDist(player, state) {
+  let best = Infinity;
+  for (const p of state.players) {
+    if (p.team === player.team || p.excluded) continue;
+    best = Math.min(best, Math.hypot(p.x - player.x, p.z - player.z));
+  }
+  return best;
+}
+
+// A forward teammate with no defender breathing down their neck.
+function openTeammate(player, state) {
+  const sign = player.team === 0 ? 1 : -1;
+  let best = null;
+  let bestOpen = 2.0; // require at least this much separation to bother
+  for (const p of state.players) {
+    if (p === player || p.team !== player.team || p.role === 'goalie' || p.excluded) continue;
+    if ((p.x - player.x) * sign < 1) continue; // must be ahead toward goal
+    const open = nearestOpponentDist(p, state);
+    if (open > bestOpen) { best = p; bestOpen = open; }
+  }
+  return best;
 }
 
 function clamp(v, lo, hi) {

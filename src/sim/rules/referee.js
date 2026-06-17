@@ -14,6 +14,8 @@ const HALF_L = POOL.length / 2;
 
 // In-play referee: clocks, goals, end of period. Called only while phase==='play'.
 export function updateReferee(state, dt) {
+  tickTimers(state, dt);
+
   checkGoal(state);
   if (state.phase !== 'play') return; // a goal ended the play this tick
 
@@ -25,6 +27,23 @@ export function updateReferee(state, dt) {
 
   state.periodClock = Math.max(0, state.periodClock - dt);
   if (state.periodClock <= 0) endPeriod(state);
+}
+
+// Free-throw protection + exclusion sin-bins count down in real (play) time.
+function tickTimers(state, dt) {
+  if (state.freeThrowTimer > 0) state.freeThrowTimer = Math.max(0, state.freeThrowTimer - dt);
+  for (const p of state.players) {
+    if (!p.excluded) continue;
+    p.excludeTimer -= dt;
+    if (p.excludeTimer <= 0) reinstate(p);
+  }
+}
+
+function reinstate(p) {
+  p.excluded = false;
+  p.excludeTimer = 0;
+  // Re-enter from the corner by the own goal; AI/formation takes it from here.
+  p.z = p.team === 0 ? POOL.width / 2 - 0.5 : POOL.width / 2 - 0.5;
 }
 
 function checkGoal(state) {
@@ -46,6 +65,11 @@ function score(state, team) {
   state.possession = null;
   state.ball.vx = state.ball.vy = state.ball.vz = 0;
   state.ball.held = false;
+
+  // A conceding team that was a man down gets its excluded player back.
+  for (const p of state.players) {
+    if (p.excluded && p.team !== team) reinstate(p);
+  }
 }
 
 function endPeriod(state) {
