@@ -52,13 +52,44 @@ try {
   await page.waitForTimeout(1200);
   await page.screenshot({ path: 'shots/m0-endline.png' });
 
+  // --- Milestone 1: aim down-pool, charge a lob, and capture it mid-flight. ---
+  await page.evaluate(() => {
+    // Face the human at the opponent goal and give some space for a clean shot.
+    const s = window.GAME.state;
+    const h = s.players.find((p) => p.human);
+    h.x = 8; h.z = 0; h.heading = Math.atan2(1.2, 30 / 2 - 8);
+  });
+  await page.keyboard.press('KeyC'); // back to broadcast for the action shot
+  await page.waitForTimeout(300);
+  await page.keyboard.down('KeyQ'); // hold lob to charge
+  await page.waitForTimeout(450);
+  await page.screenshot({ path: 'shots/m1-charge.png' });
+  await page.keyboard.up('KeyQ'); // release: fire the lob
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: 'shots/m1-shot.png' });
+  await page.waitForTimeout(1600); // let it land / score
+  await page.screenshot({ path: 'shots/m1-after.png' });
+
+  // Headless determinism check: confirm all three shot types can score.
+  const shotCheck = await page.evaluate(() => {
+    return window.GAME.testShots ? window.GAME.testShots() : null;
+  });
+
   const info = await page.evaluate(() => {
     const g = window.GAME;
     const p = g.state.players[0];
-    return { tick: g.state.tick, players: g.state.players.length, camMode: g.renderer.rig.mode, px: +p.x.toFixed(2), stamina: +p.stamina.toFixed(2) };
+    return {
+      tick: g.state.tick,
+      players: g.state.players.length,
+      camMode: g.renderer.rig.mode,
+      score: g.state.score,
+      shotClock: +g.state.shotClock.toFixed(1),
+      possession: g.state.possession,
+    };
   });
 
   console.log('GAME info:', JSON.stringify(info));
+  if (shotCheck) console.log('Shot self-test:', JSON.stringify(shotCheck));
   console.log('Console errors:', errors.length ? errors : 'none');
   process.exitCode = errors.length ? 1 : 0;
 } finally {

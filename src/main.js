@@ -25,9 +25,41 @@ let prevState = structuredClone(state);
 renderer.syncEntities(state);
 
 const statsEl = document.getElementById('stats');
+const scoreEl = document.getElementById('score');
+const shotclockEl = document.getElementById('shotclock');
+const goalflashEl = document.getElementById('goalflash');
+const chargebarEl = document.getElementById('chargebar');
+const chargefillEl = document.getElementById('chargefill');
+const chargelabelEl = document.getElementById('chargelabel');
+const CHARGE_COLOR = { normal: '#ffffff', skip: '#4fd2ff', lob: '#ffa83c' };
+
 let accumulator = 0;
 let last = performance.now();
 let fpsSmooth = 60;
+
+function updateHUD(s) {
+  if (scoreEl) scoreEl.textContent = `${s.score[0]} : ${s.score[1]}`;
+  if (shotclockEl) {
+    shotclockEl.textContent = Math.ceil(s.shotClock);
+    shotclockEl.classList.toggle('urgent', s.shotClock <= 5);
+  }
+  if (goalflashEl) goalflashEl.classList.toggle('show', s.phase === 'goal');
+
+  // Charge bar follows the controlled carrier while a shoot button is held.
+  const carrier = s.players.find((p) => p.controlled && p.chargeType);
+  if (chargebarEl) {
+    if (carrier) {
+      const frac = Math.min(1, carrier.charge / TUNABLES.shot.chargeTime);
+      chargebarEl.classList.add('show');
+      chargefillEl.style.width = `${Math.round(frac * 100)}%`;
+      chargefillEl.style.background = CHARGE_COLOR[carrier.chargeType] || '#fff';
+      chargelabelEl.textContent = carrier.chargeType;
+      chargelabelEl.style.color = CHARGE_COLOR[carrier.chargeType] || '#fff';
+    } else {
+      chargebarEl.classList.remove('show');
+    }
+  }
+}
 
 function frame(now) {
   let dt = (now - last) / 1000;
@@ -44,7 +76,12 @@ function frame(now) {
     x: basis.forward.x * raw.moveY + basis.right.x * raw.moveX,
     z: basis.forward.z * raw.moveY + basis.right.z * raw.moveX,
   };
-  const command = createCommand({ move, sprint: raw.sprint });
+  const command = createCommand({
+    move,
+    sprint: raw.sprint,
+    shootType: raw.shootType,
+    pass: raw.pass,
+  });
 
   // Commands keyed by controlled player id (one local player in Milestone 0).
   const commands = {};
@@ -63,6 +100,7 @@ function frame(now) {
 
   renderer.syncEntities(state);
   renderer.render(prevState, state, alpha, dt);
+  updateHUD(state);
 
   if (statsEl) {
     statsEl.textContent = `${Math.round(fpsSmooth)} fps · cam: ${renderer.rig.mode}`;
@@ -78,4 +116,33 @@ window.GAME = {
   get state() { return state; },
   renderer,
   TUNABLES,
+  // Deterministic self-test: can each shot type score from the 6m mark when
+  // aimed at an open corner? Runs throwaway sims; never touches the live state.
+  testShots() {
+    const HALF_L = state.pool.length / 2;
+    const out = {};
+    for (const type of ['normal', 'skip', 'lob']) {
+      const s = createWorld();
+      for (const p of s.players) {
+        if (p.team === 1) { p.x = HALF_L - 0.5; p.z = 9; p.hz = 9; } // clear opponents
+      }
+      const h = s.players.find((p) => p.human);
+      h.x = 9; h.z = -1; h.hx = 9; h.hz = -1;
+      s.ball.x = 9; s.ball.z = -1;
+      const aim = () => { h.heading = Math.atan2(1.2 - (-1), HALF_L - 9); };
+      const chargeTicks = Math.round(TUNABLES.shot.chargeTime / FIXED_DT);
+      const start = s.score[0];
+      for (let i = 0; i < 400; i++) {
+        aim();
+        const cmd = createCommand({
+          move: { x: 0, z: 0 },
+          shootType: i < chargeTicks ? type : null,
+        });
+        step(s, { [h.id]: cmd }, FIXED_DT);
+        if (s.score[0] > start) break;
+      }
+      out[type] = s.score[0] > start;
+    }
+    return out;
+  },
 };

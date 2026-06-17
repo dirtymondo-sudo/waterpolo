@@ -12,6 +12,7 @@ import { addLighting } from './lighting.js';
 import { createWater } from './water/water.js';
 import { createPoolView } from './entities/poolView.js';
 import { createPlayerView } from './entities/playerView.js';
+import { createBallView } from './entities/ballView.js';
 import { CameraRig } from './cameraRig.js';
 
 function makeSky() {
@@ -67,6 +68,9 @@ export class Renderer {
     this.water = createWater(POOL.width, POOL.length);
     this.scene.add(this.water.mesh);
 
+    this.ballView = createBallView();
+    this.scene.add(this.ballView.group);
+
     this.rig = new CameraRig(this.camera);
     this.playerViews = new Map(); // playerId -> view
 
@@ -97,13 +101,24 @@ export class Renderer {
       const x = lerp(p0.x, p.x, alpha);
       const z = lerp(p0.z, p.z, alpha);
       const heading = lerpAngle(p0.heading, p.heading, alpha);
-      view.setPose(x, z, heading, p.speed, dt);
+      const chargeFrac = p.charge / TUNABLES.shot.chargeTime;
+      view.setPose(x, z, heading, p.speed, dt, p.controlled, chargeFrac, p.chargeType);
 
       if (p.controlled) {
         focus = { x, z };
         focusVel = { x: p.vx, z: p.vz };
       }
     }
+
+    // Ball (interpolated in all three axes; y is height for lobs/skips).
+    const b0 = prev.ball || curr.ball;
+    const b = curr.ball;
+    this.ballView.setPose(
+      lerp(b0.x, b.x, alpha),
+      lerp(b0.y, b.y, alpha),
+      lerp(b0.z, b.z, alpha),
+      dt
+    );
 
     this.rig.update(focus, focusVel, dt);
     this.water.update(dt, this.camera);

@@ -70,24 +70,27 @@ export function createPlayerView(team, controlled) {
   foam.position.y = 0.01;
   group.add(foam);
 
-  // Controlled-player ring marker on the surface.
-  let marker = null;
-  if (controlled) {
-    marker = new THREE.Mesh(
-      new THREE.RingGeometry(0.55, 0.7, 28),
-      new THREE.MeshBasicMaterial({ color: 0xffe45e, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })
-    );
-    marker.rotation.x = -Math.PI / 2;
-    marker.position.y = 0.02;
-    group.add(marker);
-  }
+  // Control marker on the surface. Built for every player but only shown for the
+  // one currently controlled — control switches to whoever picks up the ball.
+  const marker = new THREE.Mesh(
+    new THREE.RingGeometry(0.55, 0.7, 28),
+    new THREE.MeshBasicMaterial({ color: 0xffe45e, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })
+  );
+  marker.rotation.x = -Math.PI / 2;
+  marker.position.y = 0.02;
+  marker.visible = !!controlled;
+  group.add(marker);
+
+  // Per-shot-type marker colours so the charge read-out matches the HUD.
+  const CHARGE_COLOR = { normal: 0xffffff, skip: 0x4fd2ff, lob: 0xffa83c };
 
   let bobPhase = Math.random() * Math.PI * 2;
 
   return {
     group,
-    // pose: interpolated { x, z, heading, speed }; t: render time for the bob.
-    setPose(x, z, heading, speed, dt) {
+    // pose: interpolated { x, z, heading, speed }; dt: frame time for the bob.
+    // controlled toggles the marker; chargeFrac/chargeType give shot feedback.
+    setPose(x, z, heading, speed, dt, controlled = false, chargeFrac = 0, chargeType = null) {
       group.position.x = x;
       group.position.z = z;
       group.rotation.y = -heading; // world heading -> Three Y rotation
@@ -107,8 +110,18 @@ export function createPlayerView(team, controlled) {
       foam.scale.setScalar(s);
       foam.material.opacity = 0.2 + Math.min(speed / 6, 0.4);
 
-      if (marker) {
-        marker.material.opacity = 0.75 + 0.2 * (0.5 + 0.5 * Math.sin(bobPhase * 1.5));
+      marker.visible = controlled;
+      if (controlled) {
+        if (chargeType) {
+          // Charging: marker swells and recolours to the chosen shot type.
+          marker.material.color.setHex(CHARGE_COLOR[chargeType] ?? 0xffe45e);
+          marker.scale.setScalar(1 + chargeFrac * 0.5);
+          marker.material.opacity = 0.85;
+        } else {
+          marker.material.color.setHex(0xffe45e);
+          marker.scale.setScalar(1);
+          marker.material.opacity = 0.75 + 0.2 * (0.5 + 0.5 * Math.sin(bobPhase * 1.5));
+        }
       }
     },
   };

@@ -30,6 +30,16 @@ dimensions + clock.
 - `node_modules/`, `dist/`, `shots/` are gitignored.
 
 ## Roadmap position
-Milestone 0 (running prototype: pool, water, swimmer, camera, loop) is DONE.
-Next: Milestone 1 — ball, passing, charge-shoot, goalie save, goal detection,
-score, shot clock. See `docs/PLAN.md` §8 for the ordered milestones.
+Milestone 0 (pool, water, swimmer, camera, loop) is DONE.
+Milestone 1 (core loop) is DONE: ball ballistics (`sim/ball.js`), possession +
+saves/steals, passing, THREE charge-shot types (normal/skip/lob), goalie + simple
+defender AI (`sim/ai.js`), goal detection + score + shot clock (`sim/rules/
+referee.js`), control auto-switches to the team-0 ball carrier, HUD scoreboard +
+charge bar. Controls: Space=shoot, E=skip, Q=lob (hold to charge), F=pass,
+Shift=sprint, C=camera (broadcast/side/dynamic/endline).
+Next: Milestone 2 — match flow state machine (swim-off → play → restarts →
+periods), fouls, win screen. See `docs/PLAN.md` §8.
+
+Tuning tip: shot feel lives in `TUNABLES.shot` (each type owns its own gravity).
+`node scripts/shot-test.mjs` checks all three trajectories headlessly (the sim is
+pure data, so no browser needed) — use it when tuning.

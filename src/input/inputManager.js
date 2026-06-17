@@ -5,6 +5,10 @@
 // space (x = right, y = up/away-from-camera) plus button states; main.js rotates
 // that into a world-space move vector using the current camera basis and wraps
 // it in a wire-ready command.
+//
+// Action buttons:
+//   Space — normal shot   E — skip shot   Q — lob shot  (hold to charge, release to fire)
+//   F     — pass          C — cycle camera          Shift — sprint
 
 const KEY_MOVE = {
   KeyW: [0, 1], ArrowUp: [0, 1],
@@ -13,20 +17,32 @@ const KEY_MOVE = {
   KeyD: [1, 0], ArrowRight: [1, 0],
 };
 
+// Shoot keys -> shot type. Priority resolves the (rare) multi-key case.
+const SHOOT_KEYS = [
+  ['Space', 'normal'],
+  ['KeyE', 'skip'],
+  ['KeyQ', 'lob'],
+];
+
+const PREVENT = new Set(['Space', 'KeyC', 'KeyE', 'KeyQ', 'KeyF']);
+
 export class InputManager {
   constructor(target = window) {
     this.keys = new Set();
     this.sprintHeld = false;
     // Edge-triggered buttons: true for exactly one sample after a press.
     this._cycleCamQueued = false;
+    this._passQueued = false;
     this._gamepadCyclePrev = false;
+    this._gamepadPassPrev = false;
 
     target.addEventListener('keydown', (e) => {
       if (e.repeat) return;
       this.keys.add(e.code);
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.sprintHeld = true;
       if (e.code === 'KeyC') this._cycleCamQueued = true;
-      if (KEY_MOVE[e.code] || e.code === 'KeyC') e.preventDefault();
+      if (e.code === 'KeyF') this._passQueued = true;
+      if (KEY_MOVE[e.code] || PREVENT.has(e.code)) e.preventDefault();
     });
     target.addEventListener('keyup', (e) => {
       this.keys.delete(e.code);
@@ -39,7 +55,7 @@ export class InputManager {
     });
   }
 
-  // Returns { moveX, moveY, sprint, cycleCam } in screen space.
+  // Returns { moveX, moveY, sprint, cycleCam, shootType, pass } in screen space.
   sample() {
     let x = 0;
     let y = 0;
@@ -49,7 +65,14 @@ export class InputManager {
     }
     let sprint = this.sprintHeld;
     let cycleCam = this._cycleCamQueued;
+    let pass = this._passQueued;
     this._cycleCamQueued = false;
+    this._passQueued = false;
+
+    let shootType = null;
+    for (const [code, type] of SHOOT_KEYS) {
+      if (this.keys.has(code)) { shootType = type; break; }
+    }
 
     // --- Gamepad overlays keyboard if a stick is pushed. ---
     const pad = this._firstGamepad();
@@ -57,9 +80,15 @@ export class InputManager {
       const gx = applyDeadzone(pad.axes[0] ?? 0);
       const gy = applyDeadzone(pad.axes[1] ?? 0);
       if (gx !== 0 || gy !== 0) { x = gx; y = -gy; } // stick up is -Y on a pad
-      // RB / R1 (button 5) or right trigger (button 7) to sprint.
+      // RB / R1 (5) or right trigger (7) to sprint.
       if (pressed(pad, 5) || pressed(pad, 7)) sprint = true;
-      // Y / triangle (button 3) cycles camera, edge-triggered.
+      // Face buttons: A(0)=normal, X(2)=lob, B(1)=skip; LB(4)=pass; Y(3)=cam.
+      if (pressed(pad, 0)) shootType = shootType || 'normal';
+      else if (pressed(pad, 1)) shootType = shootType || 'skip';
+      else if (pressed(pad, 2)) shootType = shootType || 'lob';
+      const padPass = pressed(pad, 4);
+      if (padPass && !this._gamepadPassPrev) pass = true;
+      this._gamepadPassPrev = padPass;
       const cyc = pressed(pad, 3);
       if (cyc && !this._gamepadCyclePrev) cycleCam = true;
       this._gamepadCyclePrev = cyc;
@@ -69,7 +98,7 @@ export class InputManager {
     const mag = Math.hypot(x, y);
     if (mag > 1) { x /= mag; y /= mag; }
 
-    return { moveX: x, moveY: y, sprint, cycleCam };
+    return { moveX: x, moveY: y, sprint, cycleCam, shootType, pass };
   }
 
   _firstGamepad() {
