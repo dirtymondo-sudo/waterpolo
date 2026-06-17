@@ -29,62 +29,60 @@ try {
   page.on('pageerror', (e) => errors.push('PAGEERROR: ' + e.message));
 
   await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: 'shots/m2-swimoff.png' }); // swim-off "PERIOD 1" banner
+
+  // Let the whistle blow and play settle.
+  await page.waitForTimeout(2200);
   await page.screenshot({ path: 'shots/m0-broadcast.png' });
 
-  // Swim right (D) for ~1.2s so the camera leads and the wake/lean show.
-  await page.keyboard.down('KeyD');
-  await page.keyboard.down('ShiftLeft');
-  await page.waitForTimeout(1200);
-  await page.keyboard.up('ShiftLeft');
-  await page.keyboard.up('KeyD');
-  await page.screenshot({ path: 'shots/m0-swim.png' });
-
-  // Cycle the camera to "side", let it settle.
+  // Camera tour: side -> dynamic -> endline (the vertical, down-the-pool view).
   await page.keyboard.press('KeyC');
-  await page.waitForTimeout(900);
+  await page.waitForTimeout(700);
   await page.screenshot({ path: 'shots/m0-sidecam.png' });
-
-  // Cycle on to "dynamic" then "endline" (the vertical, down-the-pool view).
   await page.keyboard.press('KeyC');
   await page.waitForTimeout(300);
   await page.keyboard.press('KeyC');
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(1000);
   await page.screenshot({ path: 'shots/m0-endline.png' });
+  await page.keyboard.press('KeyC'); // back to broadcast
 
-  // --- Milestone 1: aim down-pool, charge a lob, and capture it mid-flight. ---
+  // --- Charge a lob from a clean shooting position and capture it. ---
   await page.evaluate(() => {
-    // Face the human at the opponent goal and give some space for a clean shot.
     const s = window.GAME.state;
-    const h = s.players.find((p) => p.human);
-    h.x = 8; h.z = 0; h.heading = Math.atan2(1.2, 30 / 2 - 8);
+    s.phase = 'play'; s.phaseTimer = 0; s.possession = 0;
+    for (const p of s.players) if (p.team === 1) { p.x = 13; p.z = 8; }
+    const h = s.players.find((p) => p.controlled) || s.players.find((p) => p.human);
+    h.x = 8; h.z = 0;
+    s.ball.locked = false; s.ball.held = true; s.ball.ownerId = h.id; s.ball.x = 8; s.ball.z = 0;
   });
-  await page.keyboard.press('KeyC'); // back to broadcast for the action shot
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(200);
   await page.keyboard.down('KeyQ'); // hold lob to charge
-  await page.waitForTimeout(450);
+  await page.waitForTimeout(500);
   await page.screenshot({ path: 'shots/m1-charge.png' });
   await page.keyboard.up('KeyQ'); // release: fire the lob
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(300);
   await page.screenshot({ path: 'shots/m1-shot.png' });
-  await page.waitForTimeout(1600); // let it land / score
-  await page.screenshot({ path: 'shots/m1-after.png' });
+
+  // --- Win screen: force the clock to full time and capture the banner. ---
+  await page.evaluate(() => {
+    const s = window.GAME.state;
+    s.score = [4, 2]; s.period = 4; s.periodClock = 0.1;
+  });
+  await page.waitForTimeout(3200); // periodEnd pause -> fullTime
+  await page.screenshot({ path: 'shots/m2-fulltime.png' });
 
   // Headless determinism check: confirm all three shot types can score.
-  const shotCheck = await page.evaluate(() => {
-    return window.GAME.testShots ? window.GAME.testShots() : null;
-  });
+  const shotCheck = await page.evaluate(() => (window.GAME.testShots ? window.GAME.testShots() : null));
 
   const info = await page.evaluate(() => {
     const g = window.GAME;
-    const p = g.state.players[0];
     return {
       tick: g.state.tick,
       players: g.state.players.length,
       camMode: g.renderer.rig.mode,
+      phase: g.state.phase,
       score: g.state.score,
-      shotClock: +g.state.shotClock.toFixed(1),
-      possession: g.state.possession,
     };
   });
 

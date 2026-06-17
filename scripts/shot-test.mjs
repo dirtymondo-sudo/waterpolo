@@ -4,7 +4,7 @@
 // shot feel deterministically. Places the carrier, aims by heading, charges, and
 // fires; reports peak height, where it crossed the goal line, and the outcome.
 
-import { createWorld, kickoff } from '../src/sim/world.js';
+import { createWorld } from '../src/sim/world.js';
 import { step } from '../src/sim/step.js';
 import { TUNABLES } from '../src/config/tunables.js';
 import { POOL } from '../src/config/rules.js';
@@ -14,26 +14,30 @@ const HALF_L = POOL.length / 2;
 
 function runShot({ type, fromX, fromZ, aimZ, charge = 1.0, withGoalie = true }) {
   const state = createWorld();
-  // Park the chasing defender out of the way so we measure the shot in isolation.
-  const def = state.players.find((p) => p.team === 1 && p.role === 'field');
-  def.x = HALF_L - 1;
-  def.z = 9;
-  def.hx = HALF_L - 1;
-  def.hz = 9;
-  if (!withGoalie) {
-    const g = state.players.find((p) => p.team === 1 && p.role === 'goalie');
-    g.x = HALF_L - 0.5;
-    g.z = 9;
-    g.hz = 9;
-  }
+  // Force a live play state with the ball in the human's hands (createWorld now
+  // opens on a swim-off with the ball locked).
   const human = state.players.find((p) => p.human);
+  state.phase = 'play';
+  state.phaseTimer = 0;
+  state.possession = 0;
+
+  // Park the chasing defenders (and optionally the keeper) out of the way so we
+  // measure the shot in isolation.
+  for (const p of state.players) {
+    if (p.team !== 1) continue;
+    if (p.role === 'field' || !withGoalie) { p.x = HALF_L - 1; p.z = 9; p.hx = HALF_L - 1; p.hz = 9; }
+  }
   human.x = fromX;
   human.z = fromZ;
   human.hx = fromX;
   human.hz = fromZ;
-  // Re-seat the held ball and aim down the line toward the target corner.
-  state.ball.x = fromX;
-  state.ball.z = fromZ;
+
+  const b = state.ball;
+  b.locked = false;
+  b.held = true;
+  b.ownerId = human.id;
+  b.x = fromX;
+  b.z = fromZ;
   human.heading = Math.atan2(aimZ - fromZ, HALF_L - fromX);
 
   const chargeTicks = Math.round((charge * TUNABLES.shot.chargeTime) / DT);

@@ -102,4 +102,26 @@ export const TUNABLES = {
   defense: {
     pressDist: 1.2, // how tightly a defender sits off the ball carrier
   },
+  // CPU decision-making.
+  ai: {
+    shootRange: 8.5, // start charging a shot within this of the goal line
+    targetCharge: 0.92, // fraction of full power the CPU winds up to
+    cornerZ: 1.05, // how far toward a corner the CPU aims (m off centre)
+    sprintChaseDist: 4, // sprint after the ball/carrier when further than this
+  },
+  // Stealing/stripping the ball from a carrier (used by human and CPU).
+  steal: {
+    range: 1.05, // must be this close to the carrier to strip it
+    cooldown: 0.7, // per-player wait between steal attempts (anti-spam)
+    missCooldown: 0.3, // shorter wait after a whiff
+    knockSpeed: 1.8, // how hard the ball pops loose, toward the stealer
+    knockUp: 0.9, // upward pop so it's a brief scramble
+  },
+
+  // --- Match flow (state-machine pacing) ---
+  match: {
+    swimOffSeconds: 2.2, // whistle countdown before the sprint for the ball
+    goalPauseSeconds: 1.4, // celebration freeze after a goal
+    periodEndSeconds: 2.5, // break between periods
+  },
 };

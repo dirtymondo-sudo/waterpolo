@@ -14,7 +14,15 @@
 
 let _seq = 0;
 
-export function createCommand({ move, sprint = false, cycleCam = false, shootType = null, pass = false }) {
+export function createCommand({
+  move,
+  sprint = false,
+  cycleCam = false,
+  shootType = null,
+  pass = false,
+  steal = false,
+  switchPlayer = false,
+}) {
   return {
     seq: _seq++,
     move: { x: move.x, z: move.z },
@@ -22,6 +30,8 @@ export function createCommand({ move, sprint = false, cycleCam = false, shootTyp
     cycleCam: !!cycleCam,
     shootType: shootType || null,
     pass: !!pass,
+    steal: !!steal,
+    switchPlayer: !!switchPlayer,
   };
 }
 
@@ -32,4 +42,6 @@ export const NEUTRAL_COMMAND = Object.freeze({
   cycleCam: false,
   shootType: null,
   pass: false,
+  steal: false,
+  switchPlayer: false,
 });

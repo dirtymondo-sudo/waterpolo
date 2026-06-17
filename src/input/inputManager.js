@@ -8,7 +8,8 @@
 //
 // Action buttons:
 //   Space — normal shot   E — skip shot   Q — lob shot  (hold to charge, release to fire)
-//   F     — pass          C — cycle camera          Shift — sprint
+//   F     — pass          Tab — switch player        C — cycle camera   Shift — sprint
+// With no ball, holding a shoot button (Space/E/Q) lunges for a steal instead.
 
 const KEY_MOVE = {
   KeyW: [0, 1], ArrowUp: [0, 1],
@@ -24,7 +25,7 @@ const SHOOT_KEYS = [
   ['KeyQ', 'lob'],
 ];
 
-const PREVENT = new Set(['Space', 'KeyC', 'KeyE', 'KeyQ', 'KeyF']);
+const PREVENT = new Set(['Space', 'KeyC', 'KeyE', 'KeyQ', 'KeyF', 'Tab']);
 
 export class InputManager {
   constructor(target = window) {
@@ -33,8 +34,10 @@ export class InputManager {
     // Edge-triggered buttons: true for exactly one sample after a press.
     this._cycleCamQueued = false;
     this._passQueued = false;
+    this._switchQueued = false;
     this._gamepadCyclePrev = false;
     this._gamepadPassPrev = false;
+    this._gamepadSwitchPrev = false;
 
     target.addEventListener('keydown', (e) => {
       if (e.repeat) return;
@@ -42,6 +45,7 @@ export class InputManager {
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.sprintHeld = true;
       if (e.code === 'KeyC') this._cycleCamQueued = true;
       if (e.code === 'KeyF') this._passQueued = true;
+      if (e.code === 'Tab') this._switchQueued = true;
       if (KEY_MOVE[e.code] || PREVENT.has(e.code)) e.preventDefault();
     });
     target.addEventListener('keyup', (e) => {
@@ -66,8 +70,10 @@ export class InputManager {
     let sprint = this.sprintHeld;
     let cycleCam = this._cycleCamQueued;
     let pass = this._passQueued;
+    let switchPlayer = this._switchQueued;
     this._cycleCamQueued = false;
     this._passQueued = false;
+    this._switchQueued = false;
 
     let shootType = null;
     for (const [code, type] of SHOOT_KEYS) {
@@ -92,13 +98,16 @@ export class InputManager {
       const cyc = pressed(pad, 3);
       if (cyc && !this._gamepadCyclePrev) cycleCam = true;
       this._gamepadCyclePrev = cyc;
+      const sw = pressed(pad, 9); // right stick click / select-style switch
+      if (sw && !this._gamepadSwitchPrev) switchPlayer = true;
+      this._gamepadSwitchPrev = sw;
     }
 
     // Normalize diagonal keyboard input so it isn't faster.
     const mag = Math.hypot(x, y);
     if (mag > 1) { x /= mag; y /= mag; }
 
-    return { moveX: x, moveY: y, sprint, cycleCam, shootType, pass };
+    return { moveX: x, moveY: y, sprint, cycleCam, shootType, pass, switchPlayer };
   }
 
   _firstGamepad() {

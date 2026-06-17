@@ -31,15 +31,23 @@ dimensions + clock.
 
 ## Roadmap position
 Milestone 0 (pool, water, swimmer, camera, loop) is DONE.
-Milestone 1 (core loop) is DONE: ball ballistics (`sim/ball.js`), possession +
-saves/steals, passing, THREE charge-shot types (normal/skip/lob), goalie + simple
-defender AI (`sim/ai.js`), goal detection + score + shot clock (`sim/rules/
-referee.js`), control auto-switches to the team-0 ball carrier, HUD scoreboard +
-charge bar. Controls: Space=shoot, E=skip, Q=lob (hold to charge), F=pass,
-Shift=sprint, C=camera (broadcast/side/dynamic/endline).
-Next: Milestone 2 — match flow state machine (swim-off → play → restarts →
-periods), fouls, win screen. See `docs/PLAN.md` §8.
+Milestone 1 (core loop) is DONE: ball ballistics (`sim/ball.js`), passing, THREE
+charge-shot types (normal/skip/lob), goalie save, goal detection + score + shot
+clock.
+Milestone 2 (match flow) is DONE: state machine in `sim/rules/referee.js`
+(swimOff → play → goal → play … → periodEnd → swimOff/fullTime), 4 periods +
+period clock, post-goal centre restart to the conceding team, win screen. Plus
+two playability fixes: a real **CPU** (`sim/ai.js` emits the same command shape
+as a human — carrier drives & shoots, off-ball gets open, defenders press &
+**steal**, goalie holds the line / outlets) and a **steal mechanic**
+(`trySteal` in `sim/ball.js`). Roster is now 2v2 + goalies.
+Controls: WASD swim, Shift sprint, Space=shoot / E=skip / Q=lob (hold to charge),
+F=pass, Tab=switch player (with no ball, a shoot press lunges for a steal),
+C=camera (broadcast/side/dynamic/endline).
+Next: Milestone 3 — exclusion fouls + man-up/down, smarter AI, switching polish.
+See `docs/PLAN.md` §8.
 
-Tuning tip: shot feel lives in `TUNABLES.shot` (each type owns its own gravity).
+Tuning tips: shot feel lives in `TUNABLES.shot` (each type owns its own gravity);
+CPU/steal feel in `TUNABLES.ai` / `TUNABLES.steal`; pacing in `TUNABLES.match`.
 `node scripts/shot-test.mjs` checks all three trajectories headlessly (the sim is
 pure data, so no browser needed) — use it when tuning.

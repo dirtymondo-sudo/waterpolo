@@ -118,20 +118,31 @@
         text-align: center;
       }
       #scoreboard .shotclock.urgent { color: #ff5a5a; }
-      #goalflash {
+      #scoreboard .gameclock {
+        margin-right: 6px;
+        padding-right: 12px;
+        border-right: 1px solid rgba(255, 255, 255, 0.18);
+        font-size: 13px;
+        font-weight: 700;
+        opacity: 0.85;
+        letter-spacing: 0.5px;
+      }
+      #banner {
         position: absolute;
-        top: 32%;
+        top: 33%;
         left: 50%;
-        transform: translate(-50%, -50%) scale(1);
-        font-size: 84px;
+        transform: translate(-50%, -50%);
+        font-size: 40px;
         font-weight: 900;
-        letter-spacing: 4px;
+        letter-spacing: 3px;
+        text-align: center;
         color: #ffe45e;
         text-shadow: 0 4px 24px rgba(0, 0, 0, 0.7);
         opacity: 0;
         transition: opacity 0.2s ease;
       }
-      #goalflash.show { opacity: 1; }
+      #banner.show { opacity: 1; }
+      #banner.huge { font-size: 76px; }
       #chargebar {
         position: absolute;
         bottom: 54px;
@@ -171,18 +182,20 @@
       <div id="title">WATER POLO <small>— prototype</small></div>
       <div id="stats"></div>
       <div id="scoreboard">
+        <span class="gameclock" id="gameclock">Q1 2:00</span>
         <span class="team home">P1</span>
         <span class="score" id="score">0 : 0</span>
         <span class="team away">CPU</span>
         <span class="shotclock" id="shotclock">30</span>
       </div>
-      <div id="goalflash">GOAL!</div>
+      <div id="banner"></div>
       <div id="chargebar"><div id="chargefill"></div><span id="chargelabel"></span></div>
       <div class="hint">
-        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> — swim
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> swim
         &nbsp;·&nbsp; <kbd>Shift</kbd> sprint
         &nbsp;·&nbsp; <kbd>Space</kbd> shoot <kbd>E</kbd> skip <kbd>Q</kbd> lob <small>(hold)</small>
         &nbsp;·&nbsp; <kbd>F</kbd> pass
+        &nbsp;·&nbsp; <kbd>Tab</kbd> switch / steal
         &nbsp;·&nbsp; <kbd>C</kbd> camera
       </div>
     </div>

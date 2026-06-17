@@ -27,11 +27,36 @@ renderer.syncEntities(state);
 const statsEl = document.getElementById('stats');
 const scoreEl = document.getElementById('score');
 const shotclockEl = document.getElementById('shotclock');
-const goalflashEl = document.getElementById('goalflash');
+const gameclockEl = document.getElementById('gameclock');
+const bannerEl = document.getElementById('banner');
 const chargebarEl = document.getElementById('chargebar');
 const chargefillEl = document.getElementById('chargefill');
 const chargelabelEl = document.getElementById('chargelabel');
 const CHARGE_COLOR = { normal: '#ffffff', skip: '#4fd2ff', lob: '#ffa83c' };
+
+function mmss(t) {
+  const s = Math.max(0, Math.ceil(t));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// Big centre-screen status text driven by the match phase.
+function bannerFor(s) {
+  switch (s.phase) {
+    case 'swimOff':
+      return s.phaseTimer > 0.4 ? `PERIOD ${s.period}` : 'GO!';
+    case 'goal':
+      return s.lastGoalTeam === 0 ? 'GOAL — P1!' : 'GOAL — CPU!';
+    case 'periodEnd':
+      return `END OF PERIOD ${s.period}`;
+    case 'fullTime': {
+      const [a, b] = s.score;
+      const who = a === b ? 'DRAW' : a > b ? 'P1 WINS' : 'CPU WINS';
+      return `FULL TIME — ${who}  ${a} : ${b}`;
+    }
+    default:
+      return '';
+  }
+}
 
 let accumulator = 0;
 let last = performance.now();
@@ -39,11 +64,17 @@ let fpsSmooth = 60;
 
 function updateHUD(s) {
   if (scoreEl) scoreEl.textContent = `${s.score[0]} : ${s.score[1]}`;
+  if (gameclockEl) gameclockEl.textContent = `Q${s.period}  ${mmss(s.periodClock)}`;
   if (shotclockEl) {
     shotclockEl.textContent = Math.ceil(s.shotClock);
-    shotclockEl.classList.toggle('urgent', s.shotClock <= 5);
+    shotclockEl.classList.toggle('urgent', s.shotClock <= 5 && s.phase === 'play');
   }
-  if (goalflashEl) goalflashEl.classList.toggle('show', s.phase === 'goal');
+  if (bannerEl) {
+    const text = bannerFor(s);
+    bannerEl.textContent = text;
+    bannerEl.classList.toggle('show', !!text);
+    bannerEl.classList.toggle('huge', s.phase === 'goal' || s.phase === 'fullTime');
+  }
 
   // Charge bar follows the controlled carrier while a shoot button is held.
   const carrier = s.players.find((p) => p.controlled && p.chargeType);
@@ -81,6 +112,7 @@ function frame(now) {
     sprint: raw.sprint,
     shootType: raw.shootType,
     pass: raw.pass,
+    switchPlayer: raw.switchPlayer,
   });
 
   // Commands keyed by controlled player id (one local player in Milestone 0).
@@ -123,11 +155,13 @@ window.GAME = {
     const out = {};
     for (const type of ['normal', 'skip', 'lob']) {
       const s = createWorld();
+      s.phase = 'play'; s.phaseTimer = 0; s.possession = 0;
       for (const p of s.players) {
         if (p.team === 1) { p.x = HALF_L - 0.5; p.z = 9; p.hz = 9; } // clear opponents
       }
       const h = s.players.find((p) => p.human);
       h.x = 9; h.z = -1; h.hx = 9; h.hz = -1;
+      s.ball.locked = false; s.ball.held = true; s.ball.ownerId = h.id;
       s.ball.x = 9; s.ball.z = -1;
       const aim = () => { h.heading = Math.atan2(1.2 - (-1), HALF_L - 9); };
       const chargeTicks = Math.round(TUNABLES.shot.chargeTime / FIXED_DT);
