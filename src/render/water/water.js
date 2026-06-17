@@ -50,7 +50,7 @@ const vertexShader = /* glsl */ `
   }
 
   void main() {
-    vec3 p = position;                      // plane is in its local XY, rotated to XZ by the mesh
+    vec3 p = position;                      // plane is in its local XY; remapped to world XZ below
     vec2 xz = p.xy;
     vec3 tangent = vec3(1.0, 0.0, 0.0);
     vec3 binormal = vec3(0.0, 0.0, 1.0);
@@ -125,7 +125,10 @@ const fragmentShader = /* glsl */ `
 `;
 
 export function createWater(width, length) {
-  // Geometry built in local XY; the mesh is rotated -90° about X so XY -> XZ.
+  // Geometry is built in local XY, but the vertex shader itself remaps that to
+  // the world XZ plane (see `displaced` below), laying the surface flat at y=0.
+  // The mesh therefore carries NO rotation of its own — rotating it as well
+  // would tilt the already-horizontal plane up into a vertical wall.
   const geo = new THREE.PlaneGeometry(
     length, width,
     Math.ceil(length * 6), Math.ceil(width * 6)
@@ -150,7 +153,6 @@ export function createWater(width, length) {
   });
 
   const mesh = new THREE.Mesh(geo, mat);
-  mesh.rotation.x = -Math.PI / 2;
   mesh.renderOrder = 1;
 
   return {
