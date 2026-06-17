@@ -45,6 +45,13 @@ try {
   await page.waitForTimeout(900);
   await page.screenshot({ path: 'shots/m0-sidecam.png' });
 
+  // Cycle on to "dynamic" then "endline" (the vertical, down-the-pool view).
+  await page.keyboard.press('KeyC');
+  await page.waitForTimeout(300);
+  await page.keyboard.press('KeyC');
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: 'shots/m0-endline.png' });
+
   const info = await page.evaluate(() => {
     const g = window.GAME;
     const p = g.state.players[0];
