@@ -49,6 +49,14 @@ and **steal mechanic** (`trySteal`) carry over from M2.
 Controls: WASD swim, Shift sprint, Space=shoot / E=skip / Q=lob (hold to charge),
 F=pass, Tab=switch player (with no ball, a shoot press lunges for a steal),
 C=camera (broadcast/side/dynamic/endline).
+**Controller** (first-class, esp. Nintendo Switch Pro over USB): `src/input/
+gamepad.js` is a pure poll that maps any pad into a semantic snapshot, handling
+both `mapping:"standard"` and a raw-HID fallback, radial deadzone, and the D-pad
+(buttons or hat axis). Buttons map by Nintendo LABEL so prompts match the
+engraving: L-stick/D-pad swim, ZR/ZL sprint, A shoot, X skip, Y lob, L pass,
+R switch/steal, − camera. `InputManager.rumble()` drives dual-rumble (goals +
+shot release, from `main.js`); a HUD toast announces connect/disconnect. Verify
+the mapping headlessly with `npm run test:gamepad` (pure, no browser).
 Next: Milestone 4 — visual upgrade (GLTF models + animation + spring-bone jiggle;
 custom water shader with caustics/foam/wake; replays). See `docs/PLAN.md` §8.
 

@@ -7,7 +7,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:shot": "node scripts/shot-test.mjs",
+    "test:gamepad": "node scripts/gamepad-test.mjs",
+    "smoke": "vite build && node scripts/smoke.mjs"
   },
   "dependencies": {
     "three": "^0.171.0"

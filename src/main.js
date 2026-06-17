@@ -63,6 +63,42 @@ let accumulator = 0;
 let last = performance.now();
 let fpsSmooth = 60;
 
+// --- Controller haptics + connection toast ---------------------------------
+// Rumble is a pure "feel" layer reading sim deltas; it never touches the sim.
+const toastEl = document.getElementById('gamepad-toast');
+let toastTimer = 0;
+function showToast(text) {
+  if (!toastEl) return;
+  toastEl.textContent = text;
+  toastEl.classList.add('show');
+  toastTimer = 2.6;
+}
+input.onGamepadChange((info) => {
+  if (info) {
+    showToast(`🎮 ${info.label} connected`);
+    input.rumble(0.5, 0.5, 160); // a quick "hello" buzz to confirm it's live
+  } else {
+    showToast('🎮 Controller disconnected');
+  }
+});
+
+// Watch sim state between frames and translate notable events into rumble.
+let prevPhaseForRumble = state.phase;
+let wasCharging = false;
+function driveHaptics(cur) {
+  if (cur.phase === 'goal' && prevPhaseForRumble !== 'goal') {
+    // Big celebratory rumble for your goal, a duller thud when you concede.
+    if (cur.lastGoalTeam === 0) input.rumble(1.0, 0.8, 420);
+    else input.rumble(0.35, 0.25, 220);
+  }
+  prevPhaseForRumble = cur.phase;
+
+  // Light kick the instant a charged shot is released by the player.
+  const chargingNow = cur.players.some((p) => p.controlled && p.chargeType);
+  if (wasCharging && !chargingNow) input.rumble(0.45, 0.6, 110);
+  wasCharging = chargingNow;
+}
+
 function updateHUD(s) {
   if (scoreEl) scoreEl.textContent = `${s.score[0]} : ${s.score[1]}`;
   if (gameclockEl) gameclockEl.textContent = `Q${s.period}  ${mmss(s.periodClock)}`;
@@ -148,6 +184,12 @@ function frame(now) {
     accumulator -= FIXED_DT;
   }
   const alpha = accumulator / FIXED_DT;
+
+  driveHaptics(state);
+  if (toastTimer > 0) {
+    toastTimer -= dt;
+    if (toastTimer <= 0 && toastEl) toastEl.classList.remove('show');
+  }
 
   renderer.syncEntities(state);
   renderer.render(prevState, state, alpha, dt);

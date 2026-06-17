@@ -188,6 +188,36 @@
         text-transform: uppercase;
         text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
       }
+      #gamepad-toast {
+        position: absolute;
+        right: 16px;
+        bottom: 14px;
+        padding: 7px 12px;
+        background: rgba(5, 18, 31, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+      #gamepad-toast.show { opacity: 1; transform: translateY(0); }
+      .hint .pad {
+        display: inline-block;
+        min-width: 18px;
+        padding: 1px 6px;
+        margin: 0 1px;
+        text-align: center;
+        background: rgba(120, 200, 255, 0.16);
+        border: 1px solid rgba(120, 200, 255, 0.4);
+        border-radius: 9px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .hint .padline { opacity: 0.92; margin-top: 4px; }
     </style>
   </head>
   <body>
@@ -206,13 +236,24 @@
       <div id="manup"></div>
       <div id="chargebar"><div id="chargefill"></div><span id="chargelabel"></span></div>
       <div class="hint">
-        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> swim
-        &nbsp;·&nbsp; <kbd>Shift</kbd> sprint
-        &nbsp;·&nbsp; <kbd>Space</kbd> shoot <kbd>E</kbd> skip <kbd>Q</kbd> lob <small>(hold)</small>
-        &nbsp;·&nbsp; <kbd>F</kbd> pass
-        &nbsp;·&nbsp; <kbd>Tab</kbd> switch / steal
-        &nbsp;·&nbsp; <kbd>C</kbd> camera
+        <div>
+          <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> swim
+          &nbsp;·&nbsp; <kbd>Shift</kbd> sprint
+          &nbsp;·&nbsp; <kbd>Space</kbd> shoot <kbd>E</kbd> skip <kbd>Q</kbd> lob <small>(hold)</small>
+          &nbsp;·&nbsp; <kbd>F</kbd> pass
+          &nbsp;·&nbsp; <kbd>Tab</kbd> switch / steal
+          &nbsp;·&nbsp; <kbd>C</kbd> camera
+        </div>
+        <div class="padline">
+          <span class="pad">L-stick</span> swim
+          &nbsp;·&nbsp; <span class="pad">ZR</span> sprint
+          &nbsp;·&nbsp; <span class="pad">A</span> shoot <span class="pad">X</span> skip <span class="pad">Y</span> lob <small>(hold)</small>
+          &nbsp;·&nbsp; <span class="pad">L</span> pass
+          &nbsp;·&nbsp; <span class="pad">R</span> switch / steal
+          &nbsp;·&nbsp; <span class="pad">−</span> camera
+        </div>
       </div>
+      <div id="gamepad-toast"></div>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>
