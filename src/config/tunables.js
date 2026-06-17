@@ -38,6 +38,11 @@ export const TUNABLES = {
     leadClamp: 6, // max lead offset (metres)
     posDamp: 2.6, // critically-damped follow stiffness (higher = tighter)
     lookDamp: 4.0, // look-target follow stiffness
+    // "endline" mode: stand behind your team's goal and look down the long axis
+    // so the pool reads vertically (portrait), like a player's-eye end view.
+    endlineHeight: 7, // metres above the water for the end view
+    endlineDistance: 9, // metres back behind the goal line
+    endlineTeam: 0, // which team's end to stand at (0 defends -X, 1 defends +X)
     fov: 50,
     near: 0.1,
     far: 400,
