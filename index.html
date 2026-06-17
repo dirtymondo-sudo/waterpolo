@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Water Polo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #05121f;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        color: #eaf6ff;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+      }
+      canvas {
+        display: block;
+      }
+      #hud {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 10;
+      }
+      .hint {
+        position: absolute;
+        left: 16px;
+        bottom: 14px;
+        font-size: 13px;
+        line-height: 1.5;
+        opacity: 0.85;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+      }
+      .hint kbd {
+        display: inline-block;
+        min-width: 18px;
+        padding: 1px 6px;
+        margin: 0 1px;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 12px;
+      }
+      #title {
+        position: absolute;
+        left: 16px;
+        top: 14px;
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: 0.5px;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+      }
+      #title small {
+        font-weight: 400;
+        opacity: 0.6;
+      }
+      #stats {
+        position: absolute;
+        right: 16px;
+        top: 14px;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        opacity: 0.7;
+        text-align: right;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="hud">
+      <div id="title">WATER POLO <small>— prototype</small></div>
+      <div id="stats"></div>
+      <div class="hint">
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows — swim
+        &nbsp;·&nbsp; <kbd>Shift</kbd> — sprint
+        &nbsp;·&nbsp; <kbd>C</kbd> — cycle camera
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

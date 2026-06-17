@@ -1,0 +1,19 @@
+{
+  "name": "waterpolo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A browser-based, fast-paced, 2K-style water polo game built with Three.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.171.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.0",
+    "vite": "^5.4.0"
+  }
+}
