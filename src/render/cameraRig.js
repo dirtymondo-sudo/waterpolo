@@ -4,8 +4,9 @@
 
 import * as THREE from 'three';
 import { TUNABLES } from '../config/tunables.js';
+import { POOL } from '../config/rules.js';
 
-const MODES = ['broadcast', 'side', 'dynamic'];
+const MODES = ['broadcast', 'side', 'dynamic', 'endline'];
 
 export class CameraRig {
   constructor(camera) {
@@ -35,22 +36,36 @@ export class CameraRig {
     if (lead.length() > C.leadClamp) lead.setLength(C.leadClamp);
 
     const f = new THREE.Vector3(focus.x, 0, focus.z);
-    this._desiredLook.copy(f).add(lead);
 
-    // Per-mode camera offset from the look target.
-    const offset = new THREE.Vector3();
-    if (this.mode === 'broadcast') {
-      offset.set(-C.distance * 0.35, C.height, C.distance);
-    } else if (this.mode === 'side') {
-      offset.set(0, C.height * 0.55, C.distance * 1.05);
+    if (this.mode === 'endline') {
+      // Stand behind your team's goal and look straight down the long axis, so
+      // the 30m pool runs away from the camera and reads vertically on screen —
+      // a player's-eye view from that team's side. Anchored to the endline (it
+      // does not chase the player up the pool); it only pans gently sideways.
+      const teamSign = C.endlineTeam === 1 ? 1 : -1; // -X end for team 0
+      const back = POOL.length / 2 + C.endlineDistance;
+      const panZ = focus.z * 0.25; // subtle lateral tracking, stay centred-ish
+      this._desiredPos.set(teamSign * back, C.endlineHeight, panZ);
+      // Look toward the far goal so the view points up the length of the pool.
+      this._desiredLook.set(-teamSign * POOL.length * 0.25, 0, panZ);
     } else {
-      // dynamic: trail behind the focus's movement direction.
-      const dir = new THREE.Vector3(vel.x, 0, vel.z);
-      if (dir.lengthSq() < 1e-4) dir.set(1, 0, 0);
-      dir.normalize();
-      offset.copy(dir).multiplyScalar(-C.distance).add(new THREE.Vector3(0, C.height, 0));
+      this._desiredLook.copy(f).add(lead);
+
+      // Per-mode camera offset from the look target.
+      const offset = new THREE.Vector3();
+      if (this.mode === 'broadcast') {
+        offset.set(-C.distance * 0.35, C.height, C.distance);
+      } else if (this.mode === 'side') {
+        offset.set(0, C.height * 0.55, C.distance * 1.05);
+      } else {
+        // dynamic: trail behind the focus's movement direction.
+        const dir = new THREE.Vector3(vel.x, 0, vel.z);
+        if (dir.lengthSq() < 1e-4) dir.set(1, 0, 0);
+        dir.normalize();
+        offset.copy(dir).multiplyScalar(-C.distance).add(new THREE.Vector3(0, C.height, 0));
+      }
+      this._desiredPos.copy(f).addScaledVector(lead, 0.5).add(offset);
     }
-    this._desiredPos.copy(f).addScaledVector(lead, 0.5).add(offset);
 
     if (!this._initialized) {
       this._pos.copy(this._desiredPos);
